@@ -1,0 +1,340 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Keuangan Premium AI Barcode</title>
+    <!-- Library Scanner Barcode -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        /* Desain Premium White Minimalis */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: #fafafa; 
+            padding: 20px; 
+            color: #111111; 
+            margin: 0; 
+        }
+        .wadah { 
+            max-width: 420px; 
+            background: #ffffff; 
+            padding: 30px; 
+            border-radius: 16px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.02); 
+            border: 1px solid #eaeaea; 
+            margin: 0 auto; 
+            box-sizing: border-box; 
+        }
+        h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; margin-top: 0; margin-bottom: 20px; }
+        h3 { font-size: 16px; font-weight: 600; margin-top: 30px; margin-bottom: 15px; }
+        .grup-input { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500; color: #666; }
+        input { 
+            width: 100%; 
+            padding: 12px; 
+            box-sizing: border-box; 
+            border: 1px solid #e5e5e5; 
+            border-radius: 8px; 
+            background: #fcfcfc; 
+            font-size: 15px; 
+            transition: all 0.2s;
+        }
+        input:focus { border-color: #111111; background: #ffffff; outline: none; }
+        
+        button { 
+            width: 100%; 
+            padding: 14px; 
+            background: #111111; 
+            color: #ffffff; 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: 600; 
+            font-size: 15px; 
+            cursor: pointer; 
+            transition: background 0.2s;
+        }
+        button:hover { background: #222222; }
+        
+        .btn-scan { 
+            background: #ffffff; 
+            color: #111111; 
+            border: 1px solid #111111; 
+            margin-bottom: 15px; 
+        }
+        .btn-scan:hover { background: #f5f5f5; }
+        
+        #reader { 
+            width: 100%; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            margin-bottom: 15px; 
+            border: 1px solid #eaeaea !important;
+        }
+        
+        /* Box Status AI */
+        .status-ai { 
+            font-size: 13px; 
+            color: #4b5563; 
+            text-align: left; 
+            padding: 12px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            margin-bottom: 15px; 
+            display: none; 
+            font-weight: 500; 
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+        
+        .garis-pembatas { margin: 30px 0; border: 0; border-top: 1px solid #eaeaea; }
+        
+        .kotak-rekap { 
+            background: #ffffff; 
+            border: 1px solid #eaeaea; 
+            padding: 15px; 
+            margin-bottom: 10px; 
+            border-radius: 8px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+        .item-list {
+            margin-top: 15px;
+            font-size: 13px;
+            color: #555;
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #f0f0f0;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .single-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+
+<div class="wadah">
+    <h2>Catat Pengeluaran AI</h2>
+    
+    <!-- API Key Input (Disimpan aman di LocalStorage HP-mu saja) -->
+    <div class="grup-input" id="box-api-key">
+        <label>OpenAI API Key (Tersimpan aman di HP kamu)</label>
+        <input type="password" id="api_key_input" placeholder="sk-proj-..." onchange="simpanApiKey(this.value)">
+    </div>
+
+    <button type="button" class="btn-scan" onclick="aktifkanKamera()">📷 Scan Barcode dengan AI</button>
+    <div id="status_loading" class="status-ai">🔍 Sedang menganalisis kode barang via OpenAI...</div>
+    <div id="reader" style="display:none;"></div>
+
+    <form id="formPengeluaran" onsubmit="simpanData(event)">
+        <div class="grup-input">
+            <label>Nama Barang / Keperluan</label>
+            <input type="text" id="nama_barang" placeholder="Masukkan nama barang" required>
+        </div>
+        <div class="grup-input">
+            <label>Harga Barang (Rp)</label>
+            <input type="text" id="input_harga" placeholder="0" onkeyup="formatRibuan(this)" required>
+        </div>
+        <div class="grup-input">
+            <label>Tanggal & Waktu</label>
+            <input type="datetime-local" id="tanggal_waktu" required>
+        </div>
+        <button type="submit">Simpan Catatan</button>
+    </form>
+
+    <hr class="garis-pembatas">
+
+    <h3>Rekapan Bulanan</h3>
+    <div id="rekap_box">
+        <p style="color:#999; font-size: 14px;">Belum ada pengeluaran tercatat.</p>
+    </div>
+
+    <h3>Daftar Belanja Bulan Ini</h3>
+    <div id="daftar_belanja" class="item-list">
+        <p style="color:#999; font-size: 12px; text-align: center;">Belum ada item masuk.</p>
+    </div>
+</div>
+
+<script>
+// Default API Key dari input chat kamu
+const DEFAULT_KEY = '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';
+
+// Ambil data dari LocalStorage saat pertama kali load
+let databasePengeluaran = JSON.parse(localStorage.getItem('pencatatan_pengeluaran_v2')) || [];
+let apiKey = localStorage.getItem('openai_api_key') || DEFAULT_KEY;
+
+document.addEventListener("DOMContentLoaded", () => {
+    // Set default waktu lokal hari ini
+    const sekarang = new Date();
+    sekarang.setMinutes(sekarang.getMinutes() - sekarang.getTimezoneOffset());
+    document.getElementById('tanggal_waktu').value = sekarang.toISOString().slice(0, 16);
+    
+    // Set API Key di input box
+    document.getElementById('api_key_input').value = apiKey;
+    
+    // Render data rekapan & item list
+    updateUI();
+});
+
+function simpanApiKey(val) {
+    localStorage.setItem('openai_api_key', val);
+    apiKey = val;
+}
+
+function formatRibuan(input) {
+    let nilai = input.value.replace(/[^0-9]/g, '');
+    if (nilai !== "") { 
+        input.value = parseInt(nilai).toLocaleString('id-ID'); 
+    } else { 
+        input.value = ""; 
+    }
+}
+
+function aktifkanKamera() {
+    const areaScanner = document.getElementById('reader');
+    areaScanner.style.display = 'block';
+
+    const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+    
+    html5QrcodeScanner.render((decodedText) => {
+        html5QrcodeScanner.clear();
+        areaScanner.style.display = 'none';
+        
+        const loader = document.getElementById('status_loading');
+        loader.style.display = 'block';
+        loader.style.backgroundColor = "#f3f4f6";
+        loader.style.color = "#4b5563";
+        loader.innerText = "🔍 Menganalisis Barcode: " + decodedText + " via OpenAI...";
+
+        // Hubungi OpenAI secara langsung dari browser
+        const url = "https://api.openai.com/v1/chat/completions";
+        const payload = {
+            "model" => "gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "Kamu adalah kasir supermarket Indonesia yang pintar. Tebak nama produk ritel aslinya yang beredar di Indonesia berdasarkan nomor barcode EAN-13, dan berapa estimasi harganya saat ini dalam Rupiah. Balas HANYA dengan format JSON murni seperti ini, tanpa markdown dan tanpa penjelasan tambahan: {\"nama\": \"Nama Produk\", \"harga\": \"HargaAngkaMurni\"}"
+                },
+                {
+                    "role": "user",
+                    "content": "Barcode: " + decodedText
+                }
+            ],
+            "response_format": { "type": "json_object" }
+        };
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + apiKey
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => {
+            if (!response.ok) throw new Error("HTTP error " + response.status);
+            return response.json();
+        })
+        .then(resData => {
+            loader.style.display = 'none';
+            const textReply = JSON.parse(resData.choices[0].message.content);
+            if (textReply.nama && textReply.harga) {
+                document.getElementById('nama_barang').value = textReply.nama;
+                let hargaFormat = parseInt(textReply.harga).toLocaleString('id-ID');
+                document.getElementById('input_harga').value = hargaFormat;
+            } else {
+                loader.style.display = 'block';
+                loader.innerText = "⚠️ AI gagal menerjemahkan respon data.";
+            }
+        })
+        .catch(err => {
+            loader.style.display = 'block';
+            loader.style.backgroundColor = "#fee2e2";
+            loader.style.color = "#991b1b";
+            loader.innerText = "⚠️ Gagal tersambung ke OpenAI. Pastikan API Key kamu valid dan memiliki saldo credit.";
+        });
+    });
+}
+
+function simpanData(e) {
+    e.preventDefault();
+    const namaBarang = document.getElementById('nama_barang').value;
+    const hargaBersih = document.getElementById('input_harga').value.replace(/\./g, '');
+    const hargaBarang = parseInt(hargaBersih);
+    const tanggalWaktu = document.getElementById('tanggal_waktu').value;
+
+    if (namaBarang && hargaBarang > 0) {
+        databasePengeluaran.push({
+            barang: namaBarang,
+            harga: hargaBarang,
+            waktu: tanggalWaktu
+        });
+
+        localStorage.setItem('pencatatan_pengeluaran_v2', JSON.stringify(databasePengeluaran));
+        
+        // Reset Form
+        document.getElementById('nama_barang').value = "";
+        document.getElementById('input_harga').value = "";
+        
+        updateUI();
+    }
+}
+
+function updateUI() {
+    const rekapBox = document.getElementById('rekap_box');
+    const daftarBox = document.getElementById('daftar_belanja');
+    
+    if (databasePengeluaran.length === 0) {
+        rekapBox.innerHTML = '<p style="color:#999; font-size: 14px;">Belum ada pengeluaran tercatat.</p>';
+        daftarBox.innerHTML = '<p style="color:#999; font-size: 12px; text-align: center;">Belum ada item masuk.</p>';
+        return;
+    }
+
+    // Hitung Rekapan Bulanan
+    const rekapan = {};
+    const namaBulanIndo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    
+    databasePengeluaran.forEach(item => {
+        const d = new Date(item.waktu);
+        const bulanTahun = namaBulanIndo[d.getMonth()] + " " + d.getFullYear();
+        if (!rekapan[bulanTahun]) rekapan[bulanTahun] = 0;
+        rekapan[bulanTahun] += item.harga;
+    });
+
+    // Render Box Rekapan
+    rekapBox.innerHTML = "";
+    for (const [bulan, total] of Object.entries(rekapan)) {
+        rekapBox.innerHTML += `
+            <div class="kotak-rekap">
+                <span style="font-weight: 500; font-size: 14px;">${bulan}</span>
+                <span style="font-weight: 600; font-size: 15px;">Rp ${total.toLocaleString('id-ID')}</span>
+            </div>
+        `;
+    }
+
+    // Render Daftar Item Belanja (10 Terakhir)
+    daftarBox.innerHTML = "";
+    const cetakData = [...databasePengeluaran].reverse().slice(0, 10);
+    cetakData.forEach(item => {
+        const d = new Date(item.waktu);
+        const tanggalFormat = d.getDate() + "/" + (d.getMonth() + 1);
+        daftarBox.innerHTML += `
+            <div class="single-item">
+                <span><strong>${tanggalFormat}</strong> - ${item.barang}</span>
+                <span>Rp ${item.harga.toLocaleString('id-ID')}</span>
+            </div>
+        `;
+    });
+}
+</script>
+
+</body>
+</html>
+
+```
